@@ -18,12 +18,16 @@ def configure_logging():
     root.addHandler(ch)
 
 
-if __name__ == "__main__":
+def main():
     configure_logging()
-    DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
-    LYRE_REDIRECT_URI = os.environ['LYRE_REDIRECT_URI']
-    LYRE_CLIENT_ID = os.environ['LYRE_CLIENT_ID']
-    LYRE_CLIENT_SECRET = os.environ['LYRE_CLIENT_SECRET']
+    discord_bot_token = os.environ['DISCORD_BOT_TOKEN']
+    lyre_redirect_uri = os.environ['LYRE_REDIRECT_URI']
+    lyre_client_id = os.environ['LYRE_CLIENT_ID']
+    lyre_client_secret = os.environ['LYRE_CLIENT_SECRET']
 
-    bot = create_bot(LYRE_CLIENT_ID, LYRE_CLIENT_SECRET, LYRE_REDIRECT_URI)
-    bot.run(DISCORD_BOT_TOKEN)
+    bot = create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri)
+    bot.run(discord_bot_token)
+
+
+if __name__ == "__main__":
+    main()
