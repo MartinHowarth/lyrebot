@@ -123,7 +123,7 @@ class LyreBot:
 
     @commands.command(pass_context=True, no_pm=True)
     async def volume(self, ctx, value: int):
-        """Sets the volume of the currently playing song."""
+        """Sets the volume of this bot."""
         log.debug("Setting volume...")
 
         state = self.get_voice_state(ctx.message.server)
@@ -213,17 +213,6 @@ class LyreBot:
             await self.bot.add_reaction(ctx.message, THUMBS_UP)
             await self.bot.remove_reaction(ctx.message, CLOCK, ctx.message.server.me)
             log.debug("queued audio.")
-
-    @commands.command(pass_context=True, no_pm=True)
-    async def echo(self, ctx, *words: str):
-        """Echos the following text as text."""
-        # we do not want the bot to reply to itself
-        if ctx.message.author == self.bot.user:
-            return
-
-        sentence = ' '.join(words)
-        log.debug("Echoing %s as text...", sentence)
-        await self.bot.send_message(ctx.message.channel, sentence)
 
 
 def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):

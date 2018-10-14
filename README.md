@@ -31,6 +31,9 @@ A good tutorial is here: https://www.devdungeon.com/content/make-discord-bot-pyt
 You need to create a lyrebird application so that users can authenticate your bot to use their voices.
 You can do that here: https://beta.myvoice.lyrebird.ai/developer
 
+### FFmpeg
+FFmpeg is required - you can install it from https://www.ffmpeg.org/download.html
+
 ### Python package (the bot itself)
 Install using:
 
