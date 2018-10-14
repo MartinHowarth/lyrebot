@@ -5,6 +5,7 @@ import os
 import time
 
 from discord.ext import commands
+from discord.voice_client import VoiceClient
 from textwrap import dedent
 
 from lyrebot.lyrebird import generate_voice_for_text, generate_oauth2_url, generate_oauth2_token
@@ -53,13 +54,32 @@ class VoiceState:
     async def no_audio_is_playing(self):
         while True:
             if self.voice is None or self.current is None:
-                return
+                break
 
             player = self.current.player
             if player.is_done():
-                return
+                break
             log.debug("Waiting for audio to finish")
             time.sleep(0.5)
+
+        # Remake the voice client every time to handle a bug where the connection can be dropped.
+        # This is fixed properly in the "rewrite" version of the discord python SDK.
+        if self.voice is not None:
+            log.info("Remaking voice client.")
+            self.voice = VoiceClient(
+                **{
+                    'user': self.voice.user,
+                    'channel': self.voice.channel,
+                    'data': {
+                        'token': self.voice.token,
+                        'guild_id': self.voice.guild_id,
+                        'endpoint': self.voice.endpoint,
+                    },
+                    'loop': self.voice.loop,
+                    'session_id': self.voice.session_id,
+                    'main_ws': self.voice.main_ws
+                }
+            )
 
     async def audio_player_task(self):
         while True:
