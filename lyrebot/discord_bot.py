@@ -5,7 +5,6 @@ import os
 import time
 
 from discord.ext import commands
-from discord.voice_client import VoiceClient
 from textwrap import dedent
 
 from lyrebot.lyrebird import generate_voice_for_text, generate_oauth2_url, generate_oauth2_token
@@ -13,6 +12,7 @@ from lyrebot.lyrebird import generate_voice_for_text, generate_oauth2_url, gener
 log = logging.getLogger(__name__)
 
 THUMBS_UP = "\U0001F44D"
+THUMBS_DOWN = u"\U0001F44E"
 CLOCK = "\U0001F550"
 
 
@@ -62,25 +62,6 @@ class VoiceState:
             log.debug("Waiting for audio to finish")
             time.sleep(0.5)
 
-        # Remake the voice client every time to handle a bug where the connection can be dropped.
-        # This is fixed properly in the "rewrite" version of the discord python SDK.
-        if self.voice is not None:
-            log.info("Remaking voice client.")
-            self.voice = VoiceClient(
-                **{
-                    'user': self.voice.user,
-                    'channel': self.voice.channel,
-                    'data': {
-                        'token': self.voice.token,
-                        'guild_id': self.voice.guild_id,
-                        'endpoint': self.voice.endpoint,
-                    },
-                    'loop': self.voice.loop,
-                    'session_id': self.voice.session_id,
-                    'main_ws': self.voice.main_ws
-                }
-            )
-
     async def audio_player_task(self):
         while True:
             await self.no_audio_is_playing()
@@ -103,6 +84,7 @@ class LyreBot:
         self.lyre_client_secret = lyre_client_secret
         self.lyre_redirect_uri = lyre_redirect_uri
         self.volume = 1
+        self.always_speak_users = []
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -126,14 +108,14 @@ class LyreBot:
             except:
                 pass
 
-    async def _summon(self, ctx):
+    async def _summon(self, message):
         log.debug("Being summoned...")
-        summoned_channel = ctx.message.author.voice_channel
+        summoned_channel = message.author.voice_channel
         if summoned_channel is None:
             await self.bot.say('You are not in a voice channel.')
             return False
 
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(message.server)
         if state.voice is None:
             state.voice = await self.bot.join_voice_channel(summoned_channel)
         else:
@@ -191,29 +173,27 @@ class LyreBot:
             ctx.message.channel,
             "You can set it again using the 'set_token' command.")
 
-    @commands.command(pass_context=True, no_pm=True)
-    async def speak(self, ctx, *words: str):
-        """Echoes the following text as speech."""
-        if ctx.message.author not in self.lyrebird_tokens:
+    async def speak_actual(self, message, *words: str):
+        if message.author not in self.lyrebird_tokens:
             await self.bot.send_message(
-                ctx.message.channel,
+                message.channel,
                 "I do not have a lyrebird token for you. Call set_token or generate_token_uri (in a PM)")
             return
 
         sentence = ' '.join(words)
         log.debug("Echoing '%s' as speech...", sentence)
-        await self.bot.add_reaction(ctx.message, CLOCK)
+        await self.bot.add_reaction(message, CLOCK)
 
         # Join the channel of the person who requested the say
-        result = await self._summon(ctx)
+        result = await self._summon(message)
         if not result:
             return
 
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(message.server)
         log.debug("Getting voice from lyrebird...")
-        voice_bytes = await generate_voice_for_text(sentence, self.lyrebird_tokens[ctx.message.author])
+        voice_bytes = await generate_voice_for_text(sentence, self.lyrebird_tokens[message.author])
         log.debug("Got voice from lyrebird...")
-        user_filename = "{}.wav".format(ctx.message.author)
+        user_filename = "{}.wav".format(message.author)
         with open(user_filename, 'wb') as fi:
             fi.write(voice_bytes)
 
@@ -225,14 +205,32 @@ class LyreBot:
             )
         except Exception as e:
             fmt = 'An error occurred while processing this request: ```py\n{}: {}\n```'
-            await self.bot.send_message(ctx.message.channel, fmt.format(type(e).__name__, e))
+            await self.bot.send_message(message.channel, fmt.format(type(e).__name__, e))
         else:
             player.volume = self.volume
-            entry = VoiceEntry(ctx.message, player)
+            entry = VoiceEntry(message, player)
             await state.speech_queue.put(entry)
-            await self.bot.add_reaction(ctx.message, THUMBS_UP)
-            await self.bot.remove_reaction(ctx.message, CLOCK, ctx.message.server.me)
+            await self.bot.add_reaction(message, THUMBS_UP)
+            await self.bot.remove_reaction(message, CLOCK, message.server.me)
             log.debug("queued audio.")
+
+    @commands.command(pass_context=True, no_pm=True)
+    async def speak(self, ctx, *words: str):
+        """Echoes the following text as speech."""
+        await self.speak_actual(ctx.message, *words)
+
+    @commands.command(pass_context=True)
+    async def always_speak(self, ctx, word):
+        """Echoes the following text as speech."""
+        log.debug("always_speak called with: {}".format(word))
+        if word.lower() in ['y', 'yes']:
+            self.always_speak_users.append(ctx.message.author)
+            await self.bot.add_reaction(ctx.message, THUMBS_UP)
+        else:
+            if ctx.message.author in self.always_speak_users:
+                self.always_speak_users.remove(ctx.message.author)
+                await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
+        log.debug("Always speak users are: {}".format(self.always_speak_users))
 
 
 def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
@@ -256,10 +254,19 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
         )
     )
 
-    bot.add_cog(LyreBot(bot, lyre_client_id, lyre_client_secret, lyre_redirect_uri))
+    lyrebot = LyreBot(bot, lyre_client_id, lyre_client_secret, lyre_redirect_uri)
+    bot.add_cog(lyrebot)
 
     @bot.event
     async def on_ready():
         log.debug('Logged in as:\n{0} (ID: {0.id})'.format(bot.user))
+
+    @bot.event
+    async def on_message(message):
+        log.debug("message from {}.".format(message.author))
+        if message.author in lyrebot.always_speak_users:
+            log.debug("Always speaking for {}".format(message.author))
+            await lyrebot.speak_actual(message, message.content)
+        await bot.process_commands(message)
 
     return bot
