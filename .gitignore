@@ -1,4 +1,5 @@
 .env
+lyrebot/.tokens
 .idea
 venv
 **/__pycache__

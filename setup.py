@@ -28,6 +28,7 @@ setup(
         'requests_oauthlib',
         'pyaudio',
         'pynacl',
+        'pyyaml',
     ],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],

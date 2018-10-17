@@ -3,6 +3,7 @@ import discord
 import logging
 import os
 import time
+import yaml
 
 from discord.ext import commands
 from textwrap import dedent
@@ -84,7 +85,7 @@ class LyreBot:
         self.lyre_client_secret = lyre_client_secret
         self.lyre_redirect_uri = lyre_redirect_uri
         self.volume = 1
-        self.always_speak_users = []
+        self.not_always_speak_users = []
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -138,7 +139,7 @@ class LyreBot:
         """Sets the Lyrebird API token."""
         user = ctx.message.author
         log.debug("Setting lyre token for user: %s", user)
-        self.lyrebird_tokens[user] = token
+        self.lyrebird_tokens[user.name] = token
         await self.bot.add_reaction(ctx.message, THUMBS_UP)
 
     @commands.command(pass_context=True)
@@ -165,7 +166,7 @@ class LyreBot:
             self._lyre_auth_state_cache[user],
             callback_uri
         )
-        self.lyrebird_tokens[user] = token
+        self.lyrebird_tokens['{}#{}'.format(user.name, user.discriminator)] = token
         await self.bot.send_message(
             ctx.message.channel,
             "Your token is '%s'. Please retain it in case I forget myself!" % token)
@@ -174,7 +175,8 @@ class LyreBot:
             "You can set it again using the 'set_token' command.")
 
     async def speak_actual(self, message, *words: str):
-        if message.author not in self.lyrebird_tokens:
+        ident = '{}#{}'.format(message.author.name, message.author.discriminator)
+        if ident not in self.lyrebird_tokens:
             await self.bot.send_message(
                 message.channel,
                 "I do not have a lyrebird token for you. Call set_token or generate_token_uri (in a PM)")
@@ -191,7 +193,8 @@ class LyreBot:
 
         state = self.get_voice_state(message.server)
         log.debug("Getting voice from lyrebird...")
-        voice_bytes = await generate_voice_for_text(sentence, self.lyrebird_tokens[message.author])
+        voice_bytes = await generate_voice_for_text(
+            sentence, self.lyrebird_tokens[ident])
         log.debug("Got voice from lyrebird...")
         user_filename = "{}.wav".format(message.author)
         with open(user_filename, 'wb') as fi:
@@ -221,16 +224,16 @@ class LyreBot:
 
     @commands.command(pass_context=True)
     async def always_speak(self, ctx, word):
-        """Echoes the following text as speech."""
+        """Enter "n" or "no" to disable speaking of everything. Any other entry disables."""
         log.debug("always_speak called with: {}".format(word))
-        if word.lower() in ['y', 'yes']:
-            self.always_speak_users.append(ctx.message.author)
+        if word.lower() in ['n', 'no']:
+            self.not_always_speak_users.append(ctx.message.author)
             await self.bot.add_reaction(ctx.message, THUMBS_UP)
         else:
-            if ctx.message.author in self.always_speak_users:
-                self.always_speak_users.remove(ctx.message.author)
+            if ctx.message.author in self.not_always_speak_users:
+                self.not_always_speak_users.remove(ctx.message.author)
                 await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
-        log.debug("Always speak users are: {}".format(self.always_speak_users))
+        log.debug("Always speak users are: {}".format(self.not_always_speak_users))
 
 
 def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
@@ -257,6 +260,15 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     lyrebot = LyreBot(bot, lyre_client_id, lyre_client_secret, lyre_redirect_uri)
     bot.add_cog(lyrebot)
 
+    # Load in some pre-defined tokens for ease of testing.
+    # Expects a yaml file of <user name>: token
+    # Where the user name is, for example: Alice#1234
+    if os.path.exists(".tokens.yaml"):
+        with open(".tokens.yaml") as fi:
+            token_dict = yaml.safe_load(fi)
+            for user, token in token_dict.items():
+                lyrebot.lyrebird_tokens[user] = token
+
     @bot.event
     async def on_ready():
         log.debug('Logged in as:\n{0} (ID: {0.id})'.format(bot.user))
@@ -264,7 +276,7 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     @bot.event
     async def on_message(message):
         log.debug("message from {}.".format(message.author))
-        if message.author in lyrebot.always_speak_users:
+        if not message.content.startswith('"') and message.author not in lyrebot.not_always_speak_users:
             log.debug("Always speaking for {}".format(message.author))
             await lyrebot.speak_actual(message, message.content)
         await bot.process_commands(message)
