@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import yaml
+import sys
 
 from discord.ext import commands
 from textwrap import dedent
@@ -235,6 +236,12 @@ class LyreBot:
                 self.not_always_speak_users.remove(ctx.message.author)
                 await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
         log.debug("Always speak users are: {}".format(self.not_always_speak_users))
+
+    @commands.command()
+    async def restart(self):
+        """Force quit the bot (expecting something else to restart it)."""
+        log.error("Force quitting...")
+        sys.exit(1)
 
 
 def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
