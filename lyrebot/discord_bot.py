@@ -196,7 +196,8 @@ class LyreBot:
         voice_bytes = await generate_voice_for_text(
             sentence, self.lyrebird_tokens[ident])
         log.debug("Got voice from lyrebird...")
-        user_filename = "{}.wav".format(message.author)
+        user_filename = "~/{}.wav".format(message.author)
+        user_filename = os.path.expanduser(user_filename)
         with open(user_filename, 'wb') as fi:
             fi.write(voice_bytes)
 
