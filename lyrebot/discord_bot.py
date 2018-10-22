@@ -263,9 +263,10 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     # Load in some pre-defined tokens for ease of testing.
     # Expects a yaml file of <user name>: token
     # Where the user name is, for example: Alice#1234
-    if os.path.exists(os.environ.get("TOKEN_FILE", ".tokens.yaml")):
-        log.debug("tokens.yaml exists")
-        with open(".tokens.yaml") as fi:
+    filename = os.environ.get("TOKEN_FILE", ".tokens.yaml")
+    if os.path.exists(filename):
+        log.debug("tokens.yaml exists at: %s", filename)
+        with open(filename) as fi:
             token_dict = yaml.safe_load(fi)
             for user, token in token_dict.items():
                 log.info("loaded token from file for: %s", user)
