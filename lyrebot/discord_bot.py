@@ -267,7 +267,6 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
         log.debug("tokens.yaml exists")
         with open(".tokens.yaml") as fi:
             token_dict = yaml.safe_load(fi)
-            log.debug("file tokens are: %s", token_dict)
             for user, token in token_dict.items():
                 log.info("loaded token from file for: %s", user)
                 lyrebot.lyrebird_tokens[user] = token
