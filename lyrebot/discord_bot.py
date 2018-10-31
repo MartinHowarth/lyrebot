@@ -309,6 +309,8 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
                 for channel in details.get('default_channels', []):
                     lyrebot.always_speak_users_by_channel[channel].append(user)
 
+    log.info("Initial always speak users: {}".format(lyrebot.always_speak_users_by_channel))
+
     @log_exceptions
     @bot.event
     async def on_ready():
