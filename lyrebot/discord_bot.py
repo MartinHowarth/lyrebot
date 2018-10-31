@@ -6,6 +6,7 @@ import time
 import yaml
 import sys
 
+from collections import defaultdict
 from discord.ext import commands
 from textwrap import dedent
 
@@ -86,7 +87,7 @@ class LyreBot:
         self.lyre_client_secret = lyre_client_secret
         self.lyre_redirect_uri = lyre_redirect_uri
         self.volume = 1
-        self.not_always_speak_users = []
+        self.always_speak_users_by_channel = defaultdict(list)
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -226,16 +227,16 @@ class LyreBot:
 
     @commands.command(pass_context=True)
     async def always_speak(self, ctx, word):
-        """Enter "n" or "no" to disable speaking of everything. Any other entry disables."""
+        """Enter "y" or "yes" to enable speaking of everything. Any other entry disables."""
         log.debug("always_speak called with: {}".format(word))
-        if word.lower() in ['n', 'no']:
-            self.not_always_speak_users.append(ctx.message.author)
+        if word.lower() in ['y', 'yes']:
+            self.always_speak_users_by_channel[ctx.message.channel].append(ctx.message.author)
             await self.bot.add_reaction(ctx.message, THUMBS_UP)
         else:
-            if ctx.message.author in self.not_always_speak_users:
-                self.not_always_speak_users.remove(ctx.message.author)
+            if ctx.message.author in self.always_speak_users_by_channel:
+                self.always_speak_users_by_channel[ctx.message.channel].remove(ctx.message.author)
                 await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
-        log.debug("Always speak users are: {}".format(self.not_always_speak_users))
+        log.debug("Always speak users are: {}".format(self.always_speak_users_by_channel))
 
     @commands.command()
     async def restart(self):
@@ -269,16 +270,22 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     bot.add_cog(lyrebot)
 
     # Load in some pre-defined tokens for ease of testing.
-    # Expects a yaml file of <user name>: token
-    # Where the user name is, for example: Alice#1234
+    # Expects a yaml file of:
+    # Alice#1234:
+    #   token: <>
+    #   default_channels:
+    #     - <channel name>
     filename = os.environ.get("TOKEN_FILE", ".tokens.yaml")
     if os.path.exists(filename):
         log.debug("tokens.yaml exists at: %s", filename)
         with open(filename) as fi:
             token_dict = yaml.safe_load(fi)
-            for user, token in token_dict.items():
+            for user, details in token_dict.items():
                 log.info("loaded token from file for: %s", user)
-                lyrebot.lyrebird_tokens[user] = token
+                if 'token' in details:
+                    lyrebot.lyrebird_tokens[user] = details['token']
+                for channel in details.get('default_channels', []):
+                    lyrebot.always_speak_users_by_channel[channel].append(user)
 
     @bot.event
     async def on_ready():
@@ -288,7 +295,7 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     async def on_message(message):
         log.debug("message from {}.".format(message.author))
         if (not message.content.startswith('"') and
-                message.author not in lyrebot.not_always_speak_users and
+                message.author in lyrebot.always_speak_users_by_channel[message.channel] and
                 message.author.voice_channel is not None and
                 message.author != bot.user):
             log.debug("Always speaking for {}".format(message.author))
