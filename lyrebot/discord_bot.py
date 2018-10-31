@@ -320,6 +320,8 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     @bot.event
     async def on_message(message):
         log.debug("message from {} in channel {}.".format(message.author, message.channel))
+        log.debug("always speak config is: {}".format(lyrebot.always_speak_users_by_channel))
+        log.debug("Always speak in this channel: {}".format(lyrebot.always_speak_users_by_channel[str(message.channel)]))
         log.debug("always speak bools are: {} {} {} {}".format(
             not message.content.startswith('"'),
             message.author in lyrebot.always_speak_users_by_channel[str(message.channel)],
