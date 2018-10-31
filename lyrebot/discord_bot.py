@@ -319,7 +319,7 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     @log_exceptions
     @bot.event
     async def on_message(message):
-        log.debug("message from {}.".format(message.author))
+        log.debug("message from {} in channel {}.".format(message.author, message.channel))
         if (not message.content.startswith('"') and
                 message.author in lyrebot.always_speak_users_by_channel[message.channel] and
                 message.author.voice_channel is not None and
