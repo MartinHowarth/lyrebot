@@ -254,7 +254,7 @@ class LyreBot:
             self.always_speak_users_by_channel[str(ctx.message.channel)].append(ctx.message.author)
             await self.bot.add_reaction(ctx.message, THUMBS_UP)
         else:
-            if str(ctx.message.author) in self.always_speak_users_by_channel:
+            if str(ctx.message.author) in self.always_speak_users_by_channel[str(ctx.message.channel)]:
                 self.always_speak_users_by_channel[str(ctx.message.channel)].remove(ctx.message.author)
                 await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
         log.debug("Always speak users are: {}".format(self.always_speak_users_by_channel))
@@ -324,12 +324,12 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
         log.debug("Always speak in this channel: {}".format(lyrebot.always_speak_users_by_channel[str(message.channel)]))
         log.debug("always speak bools are: {} {} {} {}".format(
             not message.content.startswith('"'),
-            message.author in lyrebot.always_speak_users_by_channel[str(message.channel)],
+            str(message.author) in lyrebot.always_speak_users_by_channel[str(message.channel)],
             message.author.voice_channel is not None,
             message.author != bot.user
         ))
         if (not message.content.startswith('"') and
-                message.author in lyrebot.always_speak_users_by_channel[str(message.channel)] and
+                str(message.author) in lyrebot.always_speak_users_by_channel[str(message.channel)] and
                 message.author.voice_channel is not None and
                 message.author != bot.user):
             log.debug("Always speaking for {}".format(message.author))
