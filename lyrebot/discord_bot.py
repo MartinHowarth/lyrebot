@@ -28,16 +28,6 @@ if not discord.opus.is_loaded():
     discord.opus.load_opus('opus')
 
 
-def log_exceptions(func):
-    def wrapped(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            log.exception(e)
-            raise
-    return wrapped
-
-
 class VoiceEntry:
     def __init__(self, message, player):
         self.requester = message.author
@@ -64,7 +54,6 @@ class VoiceState:
     def player(self):
         return self.current.player
 
-    @log_exceptions
     async def no_audio_is_playing(self):
         while True:
             if self.voice is None or self.current is None:
@@ -76,7 +65,6 @@ class VoiceState:
             log.debug("Waiting for audio to finish")
             time.sleep(0.5)
 
-    @log_exceptions
     async def audio_player_task(self):
         while True:
             await self.no_audio_is_playing()
@@ -109,7 +97,6 @@ class LyreBot:
 
         return state
 
-    @log_exceptions
     async def create_voice_client(self, channel):
         voice = await self.bot.join_voice_channel(channel)
         state = self.get_voice_state(channel.server)
@@ -124,7 +111,6 @@ class LyreBot:
             except:
                 pass
 
-    @log_exceptions
     async def _summon(self, message):
         log.debug("Being summoned...")
         summoned_channel = message.author.voice_channel
@@ -140,7 +126,6 @@ class LyreBot:
 
         return True
 
-    @log_exceptions
     @commands.command(pass_context=True, no_pm=True)
     async def volume(self, ctx, value: int):
         """Sets the volume of this bot."""
@@ -151,7 +136,6 @@ class LyreBot:
         self.volume = value / 100
         await self.bot.say('Set the volume to {:.0%}'.format(player.volume))
 
-    @log_exceptions
     @commands.command(pass_context=True)
     async def set_token(self, ctx, token: str):
         """Sets the Lyrebird API token."""
@@ -160,7 +144,6 @@ class LyreBot:
         self.lyrebird_tokens[user.name] = token
         await self.bot.add_reaction(ctx.message, THUMBS_UP)
 
-    @log_exceptions
     @commands.command(pass_context=True)
     async def generate_token_uri(self, ctx):
         """Step 1 to generate your token. Call this command and follow the instructions."""
@@ -174,7 +157,6 @@ class LyreBot:
             "redirected to into the 'generate_token' command")
         await self.bot.send_message(ctx.message.channel, auth_url)
 
-    @log_exceptions
     @commands.command(pass_context=True)
     async def generate_token(self, ctx, callback_uri):
         """Step 2 to generate your token. Provide the url from the 'generate_token_uri' step."""
@@ -194,7 +176,6 @@ class LyreBot:
             ctx.message.channel,
             "You can set it again using the 'set_token' command.")
 
-    @log_exceptions
     async def speak_actual(self, message, *words: str):
         ident = '{}#{}'.format(message.author.name, message.author.discriminator)
         if ident not in self.lyrebird_tokens:
@@ -239,13 +220,11 @@ class LyreBot:
             await self.bot.remove_reaction(message, CLOCK, message.server.me)
             log.debug("queued audio.")
 
-    @log_exceptions
     @commands.command(pass_context=True, no_pm=True)
     async def speak(self, ctx, *words: str):
         """Echoes the following text as speech."""
         await self.speak_actual(ctx.message, *words)
 
-    @log_exceptions
     @commands.command(pass_context=True)
     async def always_speak(self, ctx, word):
         """Enter "y" or "yes" to enable speaking of everything. Any other entry disables."""
@@ -259,7 +238,6 @@ class LyreBot:
                 await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
         log.debug("Always speak users are: {}".format(self.always_speak_users_by_channel))
 
-    @log_exceptions
     @commands.command()
     async def restart(self):
         """Force quit the bot (expecting something else to restart it)."""
@@ -311,12 +289,10 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
 
     log.info("Initial always speak users: {}".format(lyrebot.always_speak_users_by_channel))
 
-    @log_exceptions
     @bot.event
     async def on_ready():
         log.debug('Logged in as:\n{0} (ID: {0.id})'.format(bot.user))
 
-    @log_exceptions
     @bot.event
     async def on_message(message):
         log.debug("message from {} in channel {}.".format(message.author, message.channel))
