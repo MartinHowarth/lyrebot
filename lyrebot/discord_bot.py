@@ -251,11 +251,11 @@ class LyreBot:
         """Enter "y" or "yes" to enable speaking of everything. Any other entry disables."""
         log.debug("always_speak called with: {}".format(word))
         if word.lower() in ['y', 'yes']:
-            self.always_speak_users_by_channel[ctx.message.channel].append(ctx.message.author)
+            self.always_speak_users_by_channel[str(ctx.message.channel)].append(ctx.message.author)
             await self.bot.add_reaction(ctx.message, THUMBS_UP)
         else:
-            if ctx.message.author in self.always_speak_users_by_channel:
-                self.always_speak_users_by_channel[ctx.message.channel].remove(ctx.message.author)
+            if str(ctx.message.author) in self.always_speak_users_by_channel:
+                self.always_speak_users_by_channel[str(ctx.message.channel)].remove(ctx.message.author)
                 await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
         log.debug("Always speak users are: {}".format(self.always_speak_users_by_channel))
 
@@ -319,16 +319,15 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     @log_exceptions
     @bot.event
     async def on_message(message):
-        ident = '{}#{}'.format(message.author.name, message.author.discriminator)
         log.debug("message from {} in channel {}.".format(message.author, message.channel))
         log.debug("always speak bools are: {} {} {} {}".format(
             not message.content.startswith('"'),
-            ident in lyrebot.always_speak_users_by_channel[message.channel],
+            message.author in lyrebot.always_speak_users_by_channel[str(message.channel)],
             message.author.voice_channel is not None,
             message.author != bot.user
         ))
         if (not message.content.startswith('"') and
-                ident in lyrebot.always_speak_users_by_channel[message.channel] and
+                message.author in lyrebot.always_speak_users_by_channel[str(message.channel)] and
                 message.author.voice_channel is not None and
                 message.author != bot.user):
             log.debug("Always speaking for {}".format(message.author))
