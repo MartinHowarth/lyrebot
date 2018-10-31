@@ -251,11 +251,11 @@ class LyreBot:
         """Enter "y" or "yes" to enable speaking of everything. Any other entry disables."""
         log.debug("always_speak called with: {}".format(word))
         if word.lower() in ['y', 'yes']:
-            self.always_speak_users_by_channel[str(ctx.message.channel)].append(ctx.message.author)
+            self.always_speak_users_by_channel[str(ctx.message.channel)].append(str(ctx.message.author))
             await self.bot.add_reaction(ctx.message, THUMBS_UP)
         else:
             if str(ctx.message.author) in self.always_speak_users_by_channel[str(ctx.message.channel)]:
-                self.always_speak_users_by_channel[str(ctx.message.channel)].remove(ctx.message.author)
+                self.always_speak_users_by_channel[str(ctx.message.channel)].remove(str(ctx.message.author))
                 await self.bot.add_reaction(ctx.message, THUMBS_DOWN)
         log.debug("Always speak users are: {}".format(self.always_speak_users_by_channel))
 
