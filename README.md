@@ -31,6 +31,8 @@ A good tutorial is here: https://www.devdungeon.com/content/make-discord-bot-pyt
 You need to create a lyrebird application so that users can authenticate your bot to use their voices.
 You can do that here: https://beta.myvoice.lyrebird.ai/developer
 
+The homepage and redirect uri just needs to be valid url as a web server is not actually required. Users will be redirected to it and instructed to simply copy-paste the url (now with their auth token) and give it to the bot.
+
 ### FFmpeg
 FFmpeg is required - you can install it from https://www.ffmpeg.org/download.html
 
