@@ -6,7 +6,7 @@ here = path.abspath(path.dirname(__file__))
 
 setup(
     name="lyrebot",
-    version="0.0.1",
+    version="0.1.0",
     description="Lyrebird API bot",
     url="https://github.com/MartinHowarth/lyrebot",
     author="Martin Howarth",
