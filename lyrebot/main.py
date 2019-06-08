@@ -9,7 +9,11 @@ log = logging.getLogger(__name__)
 
 def configure_logging():
     root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
+
+    if 'DEBUG' in os.environ:
+        root.setLevel(logging.DEBUG)
+    else:
+        root.setLevel(logging.INFO)
 
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.DEBUG)

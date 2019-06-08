@@ -1,4 +1,5 @@
 .env
+.tokens.yaml
 .idea
 venv
 **/__pycache__
