@@ -126,11 +126,10 @@ class LyreBot(commands.Cog):
         await message.add_reaction(CLOCK)
 
         # Join the channel of the person who requested the say
-        vc = await self.summon(message)
-        if vc is None:
+        voice_client = await self.summon(message)
+        if voice_client is None:
             return
 
-        # state = self.get_voice_state(message.guild)
         log.debug("Getting voice from lyrebird...")
         voice_bytes = await generate_voice_for_text(
             sentence, self.lyrebird_tokens[ident])
@@ -154,7 +153,7 @@ class LyreBot(commands.Cog):
                     log.error("Error playing media: %s", err)
                 os.remove(user_filename)
 
-            vc.play(audio_source, after=after)
+            voice_client.play(audio_source, after=after)
             await message.remove_reaction(CLOCK, self.bot.user)
 
     @commands.command(no_pm=True)
