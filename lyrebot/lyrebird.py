@@ -1,8 +1,5 @@
-import io
 import logging
-import pyaudio
 import requests
-import wave
 
 from textwrap import dedent
 from oauthlib.oauth2 import WebApplicationClient
@@ -75,41 +72,3 @@ async def generate_voice_for_text(text: str, access_token: str) -> bytes:
     result.raise_for_status()
     log.info("Successfully generated audio for: %s", text)
     return result.content
-
-
-def rewrite_sample_rate_to(byte_stream: io.BytesIO, target_rate: int):
-    output_stream = io.BytesIO()
-    with wave.open(byte_stream, 'rb') as input_wav:
-        with wave.open(output_stream, 'wb') as output_wav:
-            # Copy all the params
-            output_wav.setparams(input_wav.getparams())
-            # Change the framerate
-            output_wav.setframerate(target_rate)
-            # Now write out to the new file
-            input_frames = input_wav.readframes(input_wav.getnframes())
-            output_wav.writeframes(input_frames)
-    output_stream.seek(0)
-    return output_stream
-
-
-def play_audio(audio_bytes: bytes):
-    """Play the given byte string, which must be .wav format."""
-    with wave.open(io.BytesIO(audio_bytes)) as wav:
-        channels = wav.getnchannels()
-        rate = wav.getframerate()
-        width = wav.getsampwidth()
-        print(wav.getparams())
-
-    pya = pyaudio.PyAudio()
-    stream = pya.open(
-        format=pya.get_format_from_width(width=width),
-        channels=channels,
-        rate=rate,
-        output=True,
-    )
-    log.debug("Audio started")
-    stream.write(audio_bytes)
-    stream.stop_stream()
-    stream.close()
-    pya.terminate()
-    log.info("Audio finished")

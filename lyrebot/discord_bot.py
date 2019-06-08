@@ -1,13 +1,11 @@
-import asyncio
 import discord
 import logging
 import os
-import time
 import yaml
 import sys
 
 from collections import defaultdict
-from discord import FFmpegPCMAudio
+from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.ext import commands
 from textwrap import dedent
 
@@ -16,7 +14,7 @@ from lyrebot.lyrebird import generate_voice_for_text, generate_oauth2_url, gener
 log = logging.getLogger(__name__)
 
 OK_HAND = "\U0001F44C"
-RED_ARROW_DOWN = "\U0001F53D"
+ARROW_DOWN = "\U0001F53D"
 THUMBS_UP = "\U0001F44D"
 THUMBS_DOWN = u"\U0001F44E"
 CLOCK = "\U0001F550"
@@ -29,51 +27,6 @@ if not discord.opus.is_loaded():
     # opus library is located in and with the proper filename.
     # note that on windows this DLL is automatically provided for you
     discord.opus.load_opus('opus')
-
-
-class VoiceEntry:
-    def __init__(self, message, player):
-        self.requester = message.author
-        self.channel = message.channel
-        self.player = player
-
-    def __str__(self):
-        fmt = '*{0.title}* uploaded by {0.uploader} and requested by {1.display_name}'
-        duration = self.player.duration
-        if duration:
-            fmt = fmt + ' [length: {0[0]}m {0[1]}s]'.format(divmod(duration, 60))
-        return fmt.format(self.player, self.requester)
-
-
-class VoiceState:
-    def __init__(self, bot):
-        self.current = None
-        self.voice = None
-        self.bot = bot
-        self.speech_queue = asyncio.Queue()
-        self.audio_player = self.bot.loop.create_task(self.audio_player_task())
-
-    @property
-    def player(self):
-        return self.current.player
-
-    async def no_audio_is_playing(self):
-        while True:
-            if self.voice is None or self.current is None:
-                break
-
-            player = self.current.player
-            if player.is_done():
-                break
-            log.debug("Waiting for audio to finish")
-            time.sleep(0.5)
-
-    async def audio_player_task(self):
-        while True:
-            await self.no_audio_is_playing()
-            self.current = await self.speech_queue.get()
-            log.info("Got new speech from the queue.")
-            self.current.player.start()
 
 
 class LyreBot(commands.Cog):
@@ -92,14 +45,6 @@ class LyreBot(commands.Cog):
         self.volume = 1
         self.always_speak_users_by_channel = defaultdict(list)
 
-    def get_voice_state(self, guild):
-        state = self.voice_channels.get(guild.id)
-        if state is None:
-            state = VoiceState(self.bot)
-            self.voice_channels[guild.id] = state
-
-        return state
-
     async def get_voice_client(self, channel):
         if channel.guild.id in self.voice_channels:
             log.debug("Already in a voice channel in this guild.")
@@ -116,29 +61,14 @@ class LyreBot(commands.Cog):
         log.debug("Got voice client for voice channel %s", channel)
         return vc
 
-    def __unload(self):
-        # TODO how to migrate?
-        for state in self.voice_channels.values():
-            try:
-                state.audio_player.cancel()
-                if state.voice:
-                    self.bot.loop.create_task(state.voice.disconnect())
-            except:
-                pass
-
-    async def _summon(self, message):
+    async def summon(self, message):
         log.debug("Being summoned...")
         if message.author.voice is None or message.author.voice.channel is None:
             await message.channel.send('You are not in a voice channel.')
             return None
+
         log.debug("Being summoned to channel %s", message.author.voice.channel)
         vc = await self.get_voice_client(message.author.voice.channel)
-        # state = self.get_voice_state(message.guild)
-        # if state.voice is None:
-        #     state.voice = await message.author.voice.channel.connect()
-        # else:
-        #     await state.voice.move_to(message.author.voice.channel)
-
         return vc
 
     @commands.command(no_pm=True)
@@ -147,7 +77,7 @@ class LyreBot(commands.Cog):
         log.debug("Setting volume...")
 
         self.volume = value / 100
-        await self.bot.say('Set the volume to {:.0%}'.format(player.volume))
+        await ctx.message.channel.send('Set the volume to {:.0%}'.format(self.volume))
 
     @commands.command()
     async def set_token(self, ctx, token: str):
@@ -196,7 +126,7 @@ class LyreBot(commands.Cog):
         await message.add_reaction(CLOCK)
 
         # Join the channel of the person who requested the say
-        vc = await self._summon(message)
+        vc = await self.summon(message)
         if vc is None:
             return
 
@@ -211,26 +141,20 @@ class LyreBot(commands.Cog):
             fi.write(voice_bytes)
 
         try:
-            # state.voice.encoder_options(channels=2, sample_rate=48000)
             log.debug("Creating audio source.")
-            audio_source = FFmpegPCMAudio(
-                user_filename
-            )
+            audio_source = FFmpegPCMAudio(user_filename)
+            audio_source = PCMVolumeTransformer(audio_source, volume=self.volume)
             log.debug("Created audio source.")
-            # player = state.voice.create_ffmpeg_player(
-            #     user_filename,
-            #     after=lambda: os.remove(user_filename)
-            # )
         except Exception as e:
             fmt = 'An error occurred while processing this request: ```py\n{}: {}\n```'
             await message.channel.send(fmt.format(type(e).__name__, e))
         else:
-            audio_source.volume = self.volume
-            vc.play(audio_source, after=lambda _: os.remove(user_filename))
-            # player.volume = self.volume
-            # entry = VoiceEntry(message, player)
-            # await state.speech_queue.put(entry)
-            # await message.add_reaction(THUMBS_UP)
+            def after(err):
+                if err:
+                    log.error("Error playing media: %s", err)
+                os.remove(user_filename)
+
+            vc.play(audio_source, after=after)
             await message.remove_reaction(CLOCK, self.bot.user)
 
     @commands.command(no_pm=True)
@@ -242,13 +166,13 @@ class LyreBot(commands.Cog):
     async def always_speak(self, ctx, word):
         """Enter "y" or "yes" to enable speaking of everything. Any other entry disables."""
         log.debug("always_speak called with: {}".format(word))
-        if word.lower() in ['y', 'yes', 'on']:
+        if word.lower() in ['y', 'ye', 'yes', 'on']:
             self.always_speak_users_by_channel[ctx.channel.id].append(ctx.author.id)
             await ctx.message.add_reaction(OK_HAND)
         else:
             if ctx.author.id in self.always_speak_users_by_channel[ctx.channel.id]:
                 self.always_speak_users_by_channel[ctx.channel.id].remove(ctx.author.id)
-                await ctx.message.add_reaction(RED_ARROW_DOWN)
+                await ctx.message.add_reaction(ARROW_DOWN)
         log.debug("Always speak users are: {}".format(self.always_speak_users_by_channel))
 
     @commands.command()
@@ -301,10 +225,10 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
 
     # Load in some pre-defined tokens for ease of testing.
     # Expects a yaml file of:
-    # Alice#1234:
-    #   token: <>
+    # <user_id>:
+    #   token: <lyrebird_oauth_token>
     #   default_channels:
-    #     - <channel name>
+    #     - <channel id>
     filename = os.environ.get("TOKEN_FILE", os.path.join(os.getcwd(), ".tokens.yaml"))
     if os.path.exists(filename):
         log.debug("tokens.yaml exists at: %s", filename)
@@ -323,23 +247,4 @@ def create_bot(lyre_client_id, lyre_client_secret, lyre_redirect_uri):
     async def on_ready():
         log.debug('Logged in as:\n{0} (ID: {0.id})'.format(bot.user))
 
-    # @bot.event
-    # async def on_message(message):
-    #     log.debug("message from {0!r} in channel {1!r}.".format(message.author, message.channel))
-    #     log.debug("here1")
-    #     log.debug("always speak bools are: {} {} {} {}".format(
-    #         not message.content.startswith('"'),
-    #         str(message.author) in lyrebot.always_speak_users_by_channel[message.channel.id],
-    #         message.author.voice.voice_channel is not None,
-    #         message.author != bot.user
-    #     ))
-    #     log.debug("here2")
-    #     if (not message.content.startswith('"') and
-    #             str(message.author) in lyrebot.always_speak_users_by_channel[message.channel.id] and
-    #             message.author.voice_channel is not None and
-    #             message.author != bot.user):
-    #         log.debug("Always speaking for {}".format(message.author))
-    #         await lyrebot.speak_aloud(message, message.content)
-    #     await bot.process_commands(message)
-    #
     return bot

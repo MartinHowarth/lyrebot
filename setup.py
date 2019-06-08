@@ -26,7 +26,6 @@ setup(
         'flask',
         'requests',
         'requests_oauthlib',
-        'pyaudio',
         'pynacl',
         'pyyaml',
     ],
