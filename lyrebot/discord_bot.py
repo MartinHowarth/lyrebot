@@ -81,7 +81,7 @@ class LyreBot(commands.Cog):
 
     @commands.command()
     async def set_token(self, ctx, token: str):
-        """Sets the Lyrebird API token."""
+        """Sets the Lyrebird API token. The token should look like `oauth_[random characters]`"""
         log.debug("Setting lyre token for user: %s", ctx.author)
         self.lyrebird_tokens[ctx.author.id] = token
         await ctx.message.add_reaction(THUMBS_UP)
@@ -186,7 +186,7 @@ class LyreBot(commands.Cog):
         a, b, c, d = (
             not message.content.startswith('"'),
             message.author.id in self.always_speak_users_by_channel[message.channel.id],
-            message.author.voice.channel is not None,
+            message.author.voice is not None and message.author.voice.channel is not None,
             message.author != self.bot.user,
         )
         log.debug("always speak bools are: {} {} {} {}".format(a, b, c, d))

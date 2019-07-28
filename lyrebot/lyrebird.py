@@ -60,7 +60,7 @@ def get_auth_with_user_input(oauth2_client_id, oauth2_client_secret, redirect_ur
 
 
 async def generate_voice_for_text(text: str, access_token: str) -> bytes:
-    """Generates a byte string of the given text, using the Lyrebird API."""
+    """Generate a bytestring containing the audio of the given text, using the Lyrebird API."""
     headers = {"Authorization": "Bearer {token}".format(token=access_token)}
     result = requests.post(
         GENERATE_API,
